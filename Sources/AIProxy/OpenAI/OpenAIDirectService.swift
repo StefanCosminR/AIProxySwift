@@ -302,6 +302,34 @@ open class OpenAIDirectService: OpenAIService, DirectService {
         return try await self.makeRequestAndDeserializeResponse(request)
     }
 
+    /// Creates a streaming 'response' using OpenAI's new API product:
+    /// https://platform.openai.com/docs/api-reference/responses
+    ///
+    /// - Parameters:
+    ///   - requestBody: The request body to send to the OpenAI API. See this reference:
+    ///                 https://platform.openai.com/docs/api-reference/responses/create
+    ///   - secondsToWait: The amount of time to wait before `URLError.timedOut` is raised
+    /// - Returns: An async sequence of response chunks.
+    public func streamResponse(
+        requestBody: OpenAICreateResponseRequestBody,
+        secondsToWait: Int
+    ) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, OpenAIResponseChunk> {
+        var requestBody = requestBody
+        requestBody.stream = true
+        var request = try AIProxyURLRequest.createDirect(
+            baseURL: self.baseURL,
+            path: self.resolvedPath("responses"),
+            body: try requestBody.serialize(),
+            verb: .post,
+            contentType: "application/json",
+            additionalHeaders: [
+                "Authorization": "Bearer \(self.unprotectedAPIKey)"
+            ]
+        )
+        request.timeoutInterval = TimeInterval(secondsToWait)
+        return try await self.makeRequestAndDeserializeStreamingChunks(request)
+    }
+
     private func resolvedPath(_ common: String) -> String {
         assert(common[common.startIndex] != "/")
         switch self.requestFormat {
