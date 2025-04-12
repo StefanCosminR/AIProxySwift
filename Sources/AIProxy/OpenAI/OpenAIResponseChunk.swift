@@ -53,7 +53,9 @@ public struct OpenAIResponseChunk: Decodable {
         do {
             return try JSONDecoder().decode(Self.self, from: chunkJSON)
         } catch {
+            let jsonString = String(data: chunkJSON, encoding: .utf8) ?? "Invalid UTF-8 data"
             logIf(.warning)?.warning("Failed to decode OpenAI response chunk: \(error.localizedDescription)")
+            logIf(.warning)?.warning("Raw JSON content: \(jsonString)")
             return nil
         }
     }
