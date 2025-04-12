@@ -47,6 +47,19 @@ public struct OpenAICreateResponseRequestBody: Encodable {
     /// The unique ID of the previous response to the model. Use this to create multi-turn conversations.
     /// Learn more: https://platform.openai.com/docs/guides/conversation-state
     public let previousResponseId: String?
+    
+    /// What sampling temperature to use, between 0 and 2.
+    /// Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
+    /// We generally recommend altering this or `topP` but not both.
+    /// Defaults to 1 if not specified.
+    public let temperature: Double?
+    
+    /// An alternative to sampling with temperature, called nucleus sampling, where the model considers the results
+    /// of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10%
+    /// probability mass are considered.
+    /// We generally recommend altering this or `temperature` but not both.
+    /// Defaults to 1 if not specified.
+    public let topP: Double?
 
     /// If true, enable streaming of response chunks as the model generates the response.
     /// See https://platform.openai.com/docs/api-reference/responses/streaming.
@@ -60,6 +73,8 @@ public struct OpenAICreateResponseRequestBody: Encodable {
         case reasoning
         case parallelToolCalls = "parallel_tool_calls"
         case previousResponseId = "previous_response_id"
+        case temperature
+        case topP = "top_p"
         case stream
     }
 
@@ -74,6 +89,8 @@ public struct OpenAICreateResponseRequestBody: Encodable {
         reasoning: OpenAICreateResponseRequestBody.Reasoning? = nil,
         parallelToolCalls: Bool? = nil,
         previousResponseId: String? = nil,
+        temperature: Double? = nil,
+        topP: Double? = nil,
         stream: Bool? = nil
     ) {
         self.input = input
@@ -83,6 +100,8 @@ public struct OpenAICreateResponseRequestBody: Encodable {
         self.reasoning = reasoning
         self.parallelToolCalls = parallelToolCalls
         self.previousResponseId = previousResponseId
+        self.temperature = temperature
+        self.topP = topP
         self.stream = stream
     }
 }
