@@ -309,11 +309,11 @@ open class OpenAIDirectService: OpenAIService, DirectService {
     ///   - requestBody: The request body to send to the OpenAI API. See this reference:
     ///                 https://platform.openai.com/docs/api-reference/responses/create
     ///   - secondsToWait: The amount of time to wait before `URLError.timedOut` is raised
-    /// - Returns: An async sequence of response chunks.
+    /// - Returns: A stream handler for OpenAI response chunks.
     public func streamResponse(
         requestBody: OpenAICreateResponseRequestBody,
         secondsToWait: Int
-    ) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, OpenAIResponseChunk> {
+    ) async throws -> OpenAIResponseStreamHandler {
         var requestBody = requestBody
         requestBody.stream = true
         var request = try AIProxyURLRequest.createDirect(
@@ -327,7 +327,15 @@ open class OpenAIDirectService: OpenAIService, DirectService {
             ]
         )
         request.timeoutInterval = TimeInterval(secondsToWait)
-        return try await self.makeRequestAndDeserializeStreamingChunks(request)
+        return try await self.makeRequestAndDeserializeResponseChunks(request)
+    }
+
+    private func makeRequestAndDeserializeResponseChunks(_ request: URLRequest) async throws -> OpenAIResponseStreamHandler {
+        let (asyncBytes, _) = try await BackgroundNetworker.makeRequestAndWaitForAsyncBytes(
+            self.urlSession,
+            request
+        )
+        return OpenAIResponseStreamHandler(asyncLines: asyncBytes.lines)
     }
 
     private func resolvedPath(_ common: String) -> String {

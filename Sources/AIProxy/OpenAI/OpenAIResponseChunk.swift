@@ -10,83 +10,72 @@ import Foundation
 /// Represents a streamed chunk of a response returned by the OpenAI Responses API
 /// https://platform.openai.com/docs/api-reference/responses/streaming
 public struct OpenAIResponseChunk: Decodable {
-    /// A unique identifier for the response. Each chunk has the same ID.
-    public let id: String?
-    /// The object type, which is always "response.chunk"
-    public let object: String?
-    /// The Unix timestamp (in seconds) of when the response was created. Each chunk has the same timestamp.
-    public let createdAt: Double?
-    /// The delta content of this chunk.
-    public let delta: Delta
-    /// The usage information for the chunk. This is only available in the final chunk.
-    public let usage: OpenAIResponse.ResponseUsage?
+    /// The type of event in the streaming response
+    public let type: String
+    
+    // Fields for response.output_text.delta events
+    /// The delta text content when type is "response.output_text.delta"
+    public let delta: String?
+    /// The ID of the item this delta belongs to
+    public let itemId: String?
+    /// The index of the output this delta belongs to
+    public let outputIndex: Int?
+    /// The index of the content this delta belongs to
+    public let contentIndex: Int?
+    
+    // Fields for final response chunk
+    /// The full response object when the type is "response.completed"
+    public let response: OpenAIResponse?
+    
+    // Fields for tool call events (for future support)
+    /// The function call information if this is a function call chunk
+    public let functionCall: FunctionCall?
     
     private enum CodingKeys: String, CodingKey {
-        case id
-        case object
-        case createdAt = "created_at"
+        case type
         case delta
-        case usage
+        case itemId = "item_id"
+        case outputIndex = "output_index"
+        case contentIndex = "content_index"
+        case response
+        case functionCall = "function_call"
     }
     
     /// Helper method to deserialize from a line of streaming data
-    static func deserialize(fromLine line: String) -> Self? {
+    public static func deserialize(fromLine line: String) -> Self? {
+        // Only process lines that start with "data: "
         guard line.hasPrefix("data: "),
-              let chunkJSON = line.dropFirst(6).data(using: .utf8),
-              let chunk = try? JSONDecoder().decode(Self.self, from: chunkJSON) else {
-            logIf(.warning)?.warning("Received unexpected JSON from OpenAI Responses API: \(line)")
+              let chunkJSON = line.dropFirst(6).data(using: .utf8) else {
+            logIf(.debug)?.debug("Received unexpected line from OpenAI Responses API: \(line)")
             return nil
         }
-        return chunk
-    }
-}
-
-// MARK: - Delta
-extension OpenAIResponseChunk {
-    public struct Delta: Decodable {
-        /// The text content of this chunk
-        public let text: String?
-        /// The tool calls delta, if any
-        public let toolCalls: [ToolCall]?
-        /// The reasoning delta, if the model is providing reasoning
-        public let reasoning: String?
         
-        private enum CodingKeys: String, CodingKey {
-            case text
-            case toolCalls = "tool_calls"
-            case reasoning
+        do {
+            return try JSONDecoder().decode(Self.self, from: chunkJSON)
+        } catch {
+            logIf(.warning)?.warning("Failed to decode OpenAI response chunk: \(error.localizedDescription)")
+            return nil
         }
     }
     
-    /// Represents a tool call in a streaming response chunk
-    public struct ToolCall: Decodable {
-        /// The ID of the tool call
-        public let id: String?
-        /// The index of the tool call in the list of tool calls
-        public let index: Int?
-        /// The type of the tool call (e.g., "function")
-        public let type: String?
-        /// The function details if the tool call is a function
-        public let function: Function?
-        
-        private enum CodingKeys: String, CodingKey {
-            case id
-            case index
-            case type
-            case function
+    /// Convenience method to get text content from a delta event
+    public var textDelta: String? {
+        if type == "response.output_text.delta" {
+            return delta
         }
+        return nil
     }
     
-    /// Represents a function in a tool call
-    public struct Function: Decodable {
+    /// Convenience method to check if this is the final chunk
+    public var isCompleted: Bool {
+        return type == "response.completed"
+    }
+    
+    /// Represents a function call in a streamed response
+    public struct FunctionCall: Decodable {
         /// The name of the function to call
         public let name: String?
-        /// The arguments to the function, represented as a JSON string
+        /// The arguments to pass to the function
         public let arguments: String?
-        
-        private enum CodingKeys: String, CodingKey {
-            case name
-            case arguments
-        }
     }
 }

@@ -145,11 +145,11 @@ public protocol OpenAIService {
     ///   - requestBody: The request body to send to the OpenAI API. See this reference:
     ///                 https://platform.openai.com/docs/api-reference/responses/create
     ///   - secondsToWait: The amount of time to wait before `URLError.timedOut` is raised
-    /// - Returns: An async sequence of response chunks.
+    /// - Returns: A stream handler for OpenAI response chunks.
     func streamResponse(
         requestBody: OpenAICreateResponseRequestBody,
         secondsToWait: Int
-    ) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, OpenAIResponseChunk>
+    ) async throws -> OpenAIResponseStreamHandler
 }
 
 extension OpenAIService {
@@ -167,7 +167,7 @@ extension OpenAIService {
     
     public func streamResponse(
         requestBody: OpenAICreateResponseRequestBody
-    ) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, OpenAIResponseChunk> {
+    ) async throws -> OpenAIResponseStreamHandler {
         return try await self.streamResponse(requestBody: requestBody, secondsToWait: 60)
     }
 }
