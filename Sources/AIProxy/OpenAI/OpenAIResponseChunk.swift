@@ -100,7 +100,7 @@ public struct OpenAIResponseChunk: Decodable {
                     return nil
                 }
                 
-                var chunk = OpenAIResponseChunk(type: type, delta: nil, itemId: nil, 
+                let chunk = OpenAIResponseChunk(type: type, delta: nil, itemId: nil, 
                                               outputIndex: nil, contentIndex: nil, 
                                               response: json?["response"] as? [String: Any], 
                                               responseId: (json?["response"] as? [String: Any])?["id"] as? String, 
