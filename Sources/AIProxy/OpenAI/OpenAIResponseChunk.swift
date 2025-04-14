@@ -46,7 +46,7 @@ public struct OpenAIResponseChunk: Decodable {
     // Fields for final response chunk
     /// The full response object when the type is a response status event
     /// (response.created, response.in_progress, response.completed, response.failed, response.incomplete)
-    public let response: [String: Any]?
+    public let response: Response?
     
     /// The ID of the response, extracted from the response object for convenience
     public let responseId: String?
@@ -75,6 +75,10 @@ public struct OpenAIResponseChunk: Decodable {
         case errorParam = "param"
     }
     
+    public struct Response: Codable {
+        let id: String
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -91,9 +95,9 @@ public struct OpenAIResponseChunk: Decodable {
         
         // For complex objects, we'll need to decode them as [String: Any]
         // Use JSONSerialization to convert the JSON data to dictionaries
-        if let responseData = try? container.decodeIfPresent(Data.self, forKey: .response) {
-            self.response = try JSONSerialization.jsonObject(with: responseData) as? [String: Any]
-            self.responseId = (self.response?["id"] as? String)
+        if let responseData = try? container.decodeIfPresent(Response.self, forKey: .response) {
+            self.response = responseData
+            self.responseId = responseData.id
         } else {
             self.response = nil
             self.responseId = nil
@@ -155,7 +159,7 @@ public struct OpenAIResponseChunk: Decodable {
                 var itemId: String? = nil
                 var outputIndex: Int? = nil
                 var contentIndex: Int? = nil
-                var responseDict: [String: Any]? = nil
+                var responseDict: Response? = nil
                 var responseId: String? = nil
                 var functionCall: FunctionCall? = nil
                 
@@ -168,8 +172,12 @@ public struct OpenAIResponseChunk: Decodable {
                     
                 case "response.created", "response.in_progress", "response.completed", 
                      "response.failed", "response.incomplete":
-                    responseDict = json?["response"] as? [String: Any]
-                    responseId = responseDict?["id"] as? String
+                    let _responseDict = json?["response"] as? [String: Any]
+                    if let responseId = _responseDict?["id"] as? String {
+                        responseDict = Response(id: responseId)
+                    } else {
+                        responseDict = nil
+                    }
                     
                 default:
                     break
@@ -221,7 +229,7 @@ public struct OpenAIResponseChunk: Decodable {
         errorCode: String?,
         errorMessage: String?,
         errorParam: String?,
-        response: [String: Any]?, 
+        response: Response?,
         responseId: String?,
         functionCall: FunctionCall?
     ) {
@@ -282,18 +290,13 @@ public struct OpenAIResponseChunk: Decodable {
     public var error: String? {
         if type == "error" {
             return errorMessage
-        } else if type == "response.failed", let errorDict = response?["error"] as? [String: Any] {
-            return errorDict["message"] as? String
         }
+        
         return nil
     }
     
     /// Get the reason for the incomplete response if available
     public var incompleteReason: String? {
-        if type == "response.incomplete", 
-           let details = response?["incomplete_details"] as? [String: Any] {
-            return details["reason"] as? String
-        }
         return nil
     }
     
